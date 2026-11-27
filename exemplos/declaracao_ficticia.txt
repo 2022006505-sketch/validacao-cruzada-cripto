@@ -1,0 +1,6 @@
+DECLARAÇÃO FICTÍCIA
+
+Declaramos, para fins de teste, que o aluno fictício Fulano Exemplo
+concluiu a disciplina Segurança da Informação com carga horária de 60 horas.
+
+Documento sem validade — dados inventados para demonstração.
