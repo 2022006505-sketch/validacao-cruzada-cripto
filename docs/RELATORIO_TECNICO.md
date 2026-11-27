@@ -1,125 +1,88 @@
-# Relatório Técnico Simplificado: Etapa 1
+# Relatório Técnico Simplificado — Etapa 1
 
 ## 1. Identificação
 
 | Item | Valor |
 |---|---|
 | Integrante | Maximus Saulo Guerreiro Ferreira (trabalho individual) |
-| Curso / disciplina | Engenharia de Software, Segurança da Informação, IFAM |
+| Disciplina | Segurança da Informação — IFAM |
 | Turma | IV |
 | Linguagem | Python 3.9 ou superior |
 | Repositório | https://github.com/2022006505-sketch/validacao-cruzada-cripto (tag `v1.0-entrega`) |
 
 ## 2. Descrição da solução
 
-**Biblioteca.** As operações de Ed25519 usam o pacote [`cryptography`](https://cryptography.io)
-(PyCA), mantido ativamente e apoiado no OpenSSL. O SHA-256 vem do `hashlib`, da biblioteca padrão
-do Python. Nenhum algoritmo foi implementado à mão.
+**Bibliotecas.** As operações de Ed25519 usam o pacote [`cryptography`](https://cryptography.io)
+(PyCA), mantido ativamente. O SHA-256 vem do `hashlib`, da biblioteca padrão do Python. Nenhum
+algoritmo criptográfico foi implementado à mão.
 
-**Organização.**
+**Organização.** `src/seguranca/cripto.py` concentra a lógica criptográfica e a leitura de
+arquivos; `src/seguranca/cli.py` cuida da interface (argumentos, mensagens e códigos de saída);
+`seguranca.py` é o ponto de entrada. Assim, os testes exercitam a CLI como um usuário faria.
 
-- `src/seguranca/cripto.py` concentra a lógica criptográfica, a leitura e gravação de arquivos e
-  a validação de chaves.
-- `src/seguranca/cli.py` cuida apenas da interface (argumentos, mensagens e códigos de saída).
-- `seguranca.py` é o ponto de entrada.
+**Decisões técnicas (contrato de interoperabilidade).**
 
-Com essa separação, os testes exercitam a CLI exatamente como um usuário faria.
+- Hash impresso em hexadecimal minúsculo, com 64 caracteres.
+- Chave privada em PEM PKCS#8 sem senha; chave pública em PEM SubjectPublicKeyInfo.
+- Assinatura gravada crua, com 64 bytes, sem Base64 nem cabeçalho.
+- Ed25519 aplicado diretamente sobre os bytes do arquivo, sem pré-hash (Ed25519 puro, RFC 8032).
+- Arquivos lidos em modo binário, sem conversão de codificação ou de quebra de linha.
+- Códigos de saída: `0` sucesso, `1` verificação falhou, `2` erro de uso/arquivo/chave. As chaves
+  são validadas antes do uso (tipo e formato), com mensagens compreensíveis.
 
-**Principais decisões técnicas.**
-
-- **Contrato de interoperabilidade.**
-  - O hash é impresso em hexadecimal minúsculo, com 64 caracteres.
-  - A chave privada é gravada em PEM PKCS#8 sem senha, e a pública em PEM SubjectPublicKeyInfo.
-  - A assinatura é gravada crua, com 64 bytes, sem Base64 nem cabeçalho.
-  - O Ed25519 é aplicado diretamente sobre os bytes do arquivo, sem pré-hash (Ed25519 puro,
-    RFC 8032).
-  - Todos os arquivos são lidos em modo binário. Não há conversão de codificação nem de quebra de
-    linha.
-- **Códigos de saída.** `0` indica sucesso, `1` indica verificação falhou (hash divergente ou
-  assinatura inválida) e `2` indica erro de uso, arquivo ou chave. Com isso, um script consegue
-  distinguir um documento adulterado de um caminho digitado errado.
-- **Comparação de hash em tempo constante**, com `hmac.compare_digest`. A referência informada é
-  validada (64 caracteres hexadecimais) e normalizada para minúsculas.
-- **Validação de chaves antes do uso.** A ferramenta detecta quatro situações e informa cada uma
-  com uma mensagem própria:
-  - chave pública passada no lugar da privada, ou o contrário;
-  - chave de outro algoritmo, como RSA;
-  - arquivo que não é PEM;
-  - chave protegida por senha.
-- **Proteção da chave privada.** Ela é criada com permissão `0600` em sistemas Unix. O `keygen`
-  não sobrescreve arquivos existentes sem a opção `--force`.
-- **Hash em blocos de 1 MiB**, para suportar arquivos grandes sem carregá-los inteiros na memória.
-
-## 3. Funcionalidades implementadas
+## 3. Funcionalidades implementadas (R01–R06)
 
 | Req. | Descrição | Como foi atendido |
 |---|---|---|
-| R01 | Gerar par de chaves Ed25519 | `keygen <priv> <pub>`, com PEM PKCS#8 e SPKI |
-| R02 | SHA-256 de qualquer arquivo | `hash <arquivo>`, com leitura binária em blocos |
-| R03 | Comparar com hash de referência | `check <arquivo> <hash>`, que retorna 0 se OK e 1 se divergente |
-| R04 | Assinar com a chave privada | `sign <arquivo> <priv> <sig>`, que grava 64 bytes |
-| R05 | Verificar com a chave pública | `verify <arquivo> <pub> <sig>`, com mensagem explícita de válida ou inválida |
-| R06 | Rejeitar assinaturas inválidas | Rejeita arquivo alterado, outra chave e assinatura corrompida ou truncada (saída 1) |
-| — | Tratamento de erros | Arquivo inexistente, diretório, destino inexistente, chave trocada ou incompatível, hash mal formado (saída 2, sem *traceback*) |
+| R01 | Gerar par de chaves Ed25519 | `keygen <priv> <pub>`, em PEM PKCS#8 e SubjectPublicKeyInfo |
+| R02 | SHA-256 de qualquer arquivo | `hash <arquivo>`, com leitura binária |
+| R03 | Comparar com hash de referência | `check <arquivo> <hash>`: saída 0 se confere, 1 se diverge |
+| R04 | Assinar com a chave privada | `sign <arquivo> <priv> <sig>`, gerando 64 bytes |
+| R05 | Verificar com a chave pública | `verify <arquivo> <pub> <sig>`, informando válida ou inválida |
+| R06 | Rejeitar assinaturas inválidas | Arquivo alterado ou chave errada resultam em inválida (saída 1) |
+
+Erros comuns (arquivo inexistente, caminho inválido, chave incompatível, hash mal formado) são
+tratados com mensagem no *stderr* e saída 2, sem *traceback*.
 
 ## 4. Testes realizados
 
-Os testes estão automatizados em `tests/test_seguranca.py` e são executados com
-`python3 -m pytest`. Todos usam arquivos fictícios criados em diretório temporário.
+Automatizados em `tests/test_seguranca.py`, executados com `python -m pytest`. Todos usam
+arquivos fictícios em diretório temporário.
 
-| ID | Teste | Resultado esperado | Resultado obtido | Evidência |
-|---|---|---|---|---|
-| TI01 | SHA-256 dos vetores "abc" (NIST FIPS 180-2) e vazio, e de um binário de 2 MiB comparado ao `hashlib` | Hash correto | Aprovado | `test_TI01_*` |
-| TI02 | Alterar 1 byte e rodar `check` contra o hash original | Divergência (saída 1) | Aprovado | `test_TI02_*` |
-| TI03 | `keygen`: cabeçalhos PEM, tipo Ed25519 e a pública corresponde à privada | PEM válidos | Aprovado | `test_TI03_*` |
-| TI04 | Assinar e verificar o original, mais verificação independente pela biblioteca | Assinatura válida | Aprovado | `test_TI04_*` |
-| TI05 | Alterar 1 byte após a assinatura, mais assinatura corrompida e truncada | Assinatura inválida | Aprovado | `test_TI05_*` |
-| TI06 | Verificar com a chave pública de outro par | Assinatura inválida | Aprovado | `test_TI06_*` |
-| Extra | Interoperabilidade com o OpenSSL nos dois sentidos, e 8 casos de erro | OpenSSL aceita e mensagens claras | Aprovado | `test_interop_*`, `test_erro_*` |
+| ID | Teste | Resultado esperado | Resultado |
+|---|---|---|---|
+| TI01 | Calcular o SHA-256 do vetor "abc" (NIST FIPS 180-2) | Hash correto | Aprovado |
+| TI02 | Modificar o arquivo e comparar com o hash original | Divergência (saída 1) | Aprovado |
+| TI03 | Gerar um par de chaves | Arquivos PEM válidos (Ed25519) | Aprovado |
+| TI04 | Assinar e verificar o arquivo original | Assinatura válida (64 bytes) | Aprovado |
+| TI05 | Alterar o arquivo após a assinatura | Assinatura inválida (saída 1) | Aprovado |
+| TI06 | Verificar com outra chave pública | Assinatura inválida (saída 1) | Aprovado |
 
-Resultado: **21 de 21 testes aprovados.** A saída completa está em
-[`evidencias/testes_automatizados.txt`](evidencias/testes_automatizados.txt), e a execução
-manual de todos os comandos, com os códigos de saída, está em
-[`evidencias/execucao_demo.txt`](evidencias/execucao_demo.txt).
+Resultado: **6 de 6 testes aprovados.**
 
 ## 5. Análise técnica e conclusão
 
-**Limitações.**
-
-- A chave privada é gravada sem senha, porque o contrato pede PKCS#8 simples. Qualquer pessoa
-  que obtenha esse arquivo consegue assinar em nome do titular.
-- Não existe vínculo entre a chave pública e uma identidade (certificado ou ICP). A ferramenta
-  prova que o documento foi assinado com *aquela* chave, mas não diz *de quem* ela é.
-- A assinatura não tem carimbo de tempo nem mecanismo de revogação.
-- O `sign` e o `verify` carregam o arquivo inteiro na memória.
+**Limitações.** A chave privada é gravada sem senha, porque o contrato pede PKCS#8 simples: quem
+obtiver o arquivo consegue assinar em nome do titular. Não há vínculo entre a chave pública e uma
+identidade (certificado/ICP), nem carimbo de tempo ou revogação.
 
 **1. Por que um hash SHA-256 isolado não comprova a autoria?** O hash é uma função pública, sem
-chave. Qualquer pessoa pode alterar o documento e calcular o novo hash, que passa a "conferir".
-O hash só prova integridade em relação a uma referência confiável. Ele não diz quem produziu o
-documento.
+chave. Qualquer pessoa pode alterar o documento e recalcular o hash, que volta a "conferir". Ele
+prova integridade em relação a uma referência confiável, mas não diz quem produziu o documento.
 
 **2. Qual a função das chaves pública e privada?** A chave privada, que fica só com o titular,
-gera a assinatura, e só quem a possui consegue produzi-la. A chave pública é divulgada e permite
-que qualquer pessoa verifique se a assinatura foi gerada pela privada correspondente, sem que
-essa privada seja revelada.
+gera a assinatura; apenas quem a possui consegue produzi-la. A chave pública é divulgada e permite
+que qualquer pessoa verifique a assinatura, sem revelar a chave privada.
 
 **3. Por que alterar um documento assinado invalida a assinatura?** A assinatura Ed25519 é
-calculada sobre todos os bytes do documento, que passam internamente pelo SHA-512. Mudar um único
-byte muda completamente esse resumo, e a equação de verificação deixa de fechar. Produzir uma
-assinatura válida para o novo conteúdo exigiria a chave privada.
+calculada sobre todos os bytes do documento. Mudar um único byte altera completamente o resultado,
+e a equação de verificação deixa de fechar. Produzir uma assinatura válida para o novo conteúdo
+exigiria a chave privada.
 
-**4. Cuidados para uso em produção.**
+**4. Cuidados para uso em produção.** Guardar a chave privada protegida (senha, HSM ou cofre de
+segredos); vincular a chave pública a uma identidade (certificado digital); adicionar carimbo de
+tempo e revogação; distribuir a chave pública por canal confiável; e manter as dependências
+atualizadas.
 
-- Guardar a chave privada protegida: com senha, num HSM ou num cofre de segredos, com controle de
-  acesso e rotação.
-- Vincular a chave pública a uma identidade, por meio de certificado digital ou ICP-Brasil.
-- Adicionar carimbo de tempo e lista de revogação.
-- Distribuir a chave pública por canal confiável.
-- Registrar trilha de auditoria.
-- Manter as dependências atualizadas.
-- Usar processamento em fluxo para arquivos muito grandes.
-
-**Conclusão.** A ferramenta atende os requisitos R01–R06 e o contrato de interoperabilidade.
-Todos os testes obrigatórios e complementares foram aprovados. O teste com o OpenSSL indica que
-os artefatos gerados (PEM e assinatura de 64 bytes) são compatíveis com outras implementações
-corretas de Ed25519, que é o que a Etapa 2 vai avaliar.
+**Conclusão.** A ferramenta atende os requisitos R01–R06 e o contrato de interoperabilidade, com
+todos os testes mínimos aprovados.

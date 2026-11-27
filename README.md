@@ -1,6 +1,6 @@
 # seguranca: integridade e assinatura digital de arquivos
 
-Ferramenta de linha de comando para:
+Ferramenta de linha de comando (CLI) para:
 
 - calcular e comparar hashes **SHA-256**;
 - gerar pares de chaves **Ed25519**;
@@ -11,10 +11,7 @@ Trabalho Prático, Etapa 1, de Segurança da Informação (IFAM). O relatório t
 
 ## Requisitos
 
-- Python **3.9 ou superior**
-- `pip`
-- OpenSSL: opcional, usado só em dois testes de interoperabilidade, que são pulados se ele não
-  estiver instalado
+- Python **3.9 ou superior** e `pip`.
 
 ## Instalação
 
@@ -23,45 +20,34 @@ git clone https://github.com/2022006505-sketch/validacao-cruzada-cripto.git
 cd validacao-cruzada-cripto
 git checkout v1.0-entrega            # versão oficial da entrega
 
-python3 -m venv .venv
-source .venv/bin/activate            # Windows: .venv\Scripts\activate
+python -m venv .venv
+.venv\Scripts\activate               # Linux/macOS: source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
 ## Execução
 
-Todos os comandos são executados a partir da raiz do repositório:
-
-```bash
-python3 seguranca.py <comando> [argumentos]
-```
-
-No Windows, use `python` no lugar de `python3`. A forma `python3 -m seguranca`, executada de
-dentro de `src/`, é equivalente.
-
-## Comandos
-
-A ordem dos argumentos segue o contrato do enunciado.
+Todos os comandos são executados a partir da raiz do repositório. A ordem dos argumentos
+segue o contrato do enunciado.
 
 ```bash
 # Gerar chaves (privada em PEM PKCS#8, pública em PEM SubjectPublicKeyInfo)
-python3 seguranca.py keygen chave_privada.pem chave_publica.pem
+python seguranca.py keygen chave_privada.pem chave_publica.pem
 
 # Calcular hash (imprime 64 caracteres hexadecimais minúsculos)
-python3 seguranca.py hash documento.txt
+python seguranca.py hash documento.txt
 
-# Comparar hash
-python3 seguranca.py check documento.txt HASH_REFERENCIA
+# Comparar hash com uma referência
+python seguranca.py check documento.txt HASH_REFERENCIA
 
 # Assinar arquivo (gera um arquivo binário com exatamente 64 bytes)
-python3 seguranca.py sign documento.txt chave_privada.pem assinatura.sig
+python seguranca.py sign documento.txt chave_privada.pem assinatura.sig
 
 # Verificar assinatura
-python3 seguranca.py verify documento.txt chave_publica.pem assinatura.sig
+python seguranca.py verify documento.txt chave_publica.pem assinatura.sig
 ```
 
-O `keygen` não sobrescreve arquivos que já existem. Para substituí-los, acrescente `--force`
-ao final do comando.
+> No Linux/macOS, use `python3` no lugar de `python`.
 
 ### Códigos de saída
 
@@ -76,55 +62,34 @@ nunca é apresentada como válida.
 
 ## Exemplo de uso
 
-```text
-$ python3 seguranca.py keygen chave_privada.pem chave_publica.pem
-Par de chaves Ed25519 gerado.
-
-$ python3 seguranca.py hash exemplos/declaracao_ficticia.txt
-dcc541f73a64336217f2f88fa6ab626d4abf0c4c4644e652a879a91e12ed198a
-
-$ python3 seguranca.py sign exemplos/declaracao_ficticia.txt chave_privada.pem assinatura.sig
-Assinatura Ed25519 (64 bytes) gravada em: assinatura.sig
-
-$ python3 seguranca.py verify exemplos/declaracao_ficticia.txt chave_publica.pem assinatura.sig
-RESULTADO: ASSINATURA VÁLIDA
-```
-
-Para rodar a demonstração completa, com todos os requisitos e casos de erro e usando arquivos
-temporários:
-
 ```bash
-bash exemplos/demo.sh
+python seguranca.py keygen chave_privada.pem chave_publica.pem
+python seguranca.py hash exemplos/declaracao_ficticia.txt
+python seguranca.py sign exemplos/declaracao_ficticia.txt chave_privada.pem assinatura.sig
+python seguranca.py verify exemplos/declaracao_ficticia.txt chave_publica.pem assinatura.sig
+# -> RESULTADO: ASSINATURA VÁLIDA
 ```
 
 ## Testes automatizados
 
 ```bash
-python3 -m pytest
+python -m pytest
 ```
 
-São 21 testes, que cobrem:
-
-- os testes TI01–TI06 exigidos no enunciado;
-- o tratamento de erros;
-- a interoperabilidade com o OpenSSL, nos dois sentidos.
-
-A saída registrada está em [`docs/evidencias/`](docs/evidencias/).
+São os 6 testes mínimos exigidos no enunciado (TI01–TI06), que usam arquivos fictícios
+criados em diretório temporário.
 
 ## Estrutura
 
 ```
-├── seguranca.py              # ponto de entrada (python3 seguranca.py ...)
+├── seguranca.py              # ponto de entrada (python seguranca.py ...)
 ├── src/seguranca/
 │   ├── cli.py                # interface de linha de comando e códigos de saída
-│   └── cripto.py             # SHA-256, Ed25519, leitura/gravação de arquivos e erros
-├── tests/test_seguranca.py   # testes automatizados (pytest)
-├── exemplos/                 # documento fictício e script de demonstração
-├── docs/
-│   ├── RELATORIO_TECNICO.md
-│   └── evidencias/           # saídas registradas dos testes
-├── requirements.txt
-└── pyproject.toml            # configuração do pytest
+│   └── cripto.py             # SHA-256, Ed25519 e leitura de arquivos
+├── tests/test_seguranca.py   # testes automatizados TI01–TI06 (pytest)
+├── exemplos/                 # documento fictício de demonstração
+├── docs/RELATORIO_TECNICO.md
+└── requirements.txt
 ```
 
 > Nenhuma chave privada é versionada. Todos os documentos de teste são fictícios.

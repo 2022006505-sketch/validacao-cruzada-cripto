@@ -11,14 +11,10 @@ Códigos de saída:
     1  verificação falhou (hash divergente / assinatura inválida)
     2  erro (arquivo inexistente, caminho inválido, chave incompatível, uso incorreto)
 """
-from __future__ import annotations
-
 import argparse
 import sys
 
-from . import __version__
 from .cripto import (
-    TAMANHO_ASSINATURA,
     ErroSeguranca,
     assinar,
     gerar_par_chaves,
@@ -27,24 +23,23 @@ from .cripto import (
     verificar,
 )
 
-SUCESSO, FALHA_VERIFICACAO, ERRO = 0, 1, 2
+SUCESSO, FALHA, ERRO = 0, 1, 2
 
 
-def _keygen(a: argparse.Namespace) -> int:
-    gerar_par_chaves(a.chave_privada, a.chave_publica, sobrescrever=a.force)
+def _keygen(a):
+    gerar_par_chaves(a.chave_privada, a.chave_publica)
     print("Par de chaves Ed25519 gerado.")
     print(f"  chave privada (PEM PKCS#8): {a.chave_privada}")
     print(f"  chave pública (PEM SubjectPublicKeyInfo): {a.chave_publica}")
-    print("Guarde a chave privada em local seguro e não a compartilhe.")
     return SUCESSO
 
 
-def _hash(a: argparse.Namespace) -> int:
+def _hash(a):
     print(sha256_arquivo(a.arquivo))
     return SUCESSO
 
 
-def _check(a: argparse.Namespace) -> int:
+def _check(a):
     ok, calculado, referencia = hash_confere(a.arquivo, a.hash_referencia)
     print(f"Hash calculado:  {calculado}")
     print(f"Hash referência: {referencia}")
@@ -52,39 +47,34 @@ def _check(a: argparse.Namespace) -> int:
         print("RESULTADO: OK — o hash corresponde à referência.")
         return SUCESSO
     print("RESULTADO: DIVERGENTE — o hash NÃO corresponde à referência.")
-    return FALHA_VERIFICACAO
+    return FALHA
 
 
-def _sign(a: argparse.Namespace) -> int:
+def _sign(a):
     assinar(a.arquivo, a.chave_privada, a.assinatura)
-    print(f"Assinatura Ed25519 ({TAMANHO_ASSINATURA} bytes) gravada em: {a.assinatura}")
+    print(f"Assinatura Ed25519 (64 bytes) gravada em: {a.assinatura}")
     return SUCESSO
 
 
-def _verify(a: argparse.Namespace) -> int:
-    valida, motivo = verificar(a.arquivo, a.chave_publica, a.assinatura)
-    if valida:
+def _verify(a):
+    if verificar(a.arquivo, a.chave_publica, a.assinatura):
         print("RESULTADO: ASSINATURA VÁLIDA")
-        print(f"Detalhe: {motivo}.")
         return SUCESSO
     print("RESULTADO: ASSINATURA INVÁLIDA")
-    print(f"Detalhe: {motivo}.")
-    return FALHA_VERIFICACAO
+    return FALHA
 
 
-def construir_parser() -> argparse.ArgumentParser:
+def construir_parser():
     p = argparse.ArgumentParser(
         prog="seguranca",
         description="Integridade (SHA-256) e assinatura digital (Ed25519) de arquivos.",
     )
-    p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     sub = p.add_subparsers(dest="comando", metavar="COMANDO")
     sub.required = True
 
     s = sub.add_parser("keygen", help="gera um par de chaves Ed25519 em PEM")
     s.add_argument("chave_privada")
     s.add_argument("chave_publica")
-    s.add_argument("--force", action="store_true", help="sobrescreve arquivos existentes")
     s.set_defaults(func=_keygen)
 
     s = sub.add_parser("hash", help="calcula o SHA-256 de um arquivo")
@@ -110,19 +100,15 @@ def construir_parser() -> argparse.ArgumentParser:
     return p
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = construir_parser()
+def main(argv=None):
     try:
-        args = parser.parse_args(argv)
-    except SystemExit as e:  # argparse: --help/--version saem com 0, uso incorreto com 2
+        args = construir_parser().parse_args(argv)
+    except SystemExit as e:  # uso incorreto sai com código != 0
         return int(e.code or 0)
     try:
         return args.func(args)
     except ErroSeguranca as e:
         print(f"ERRO: {e}", file=sys.stderr)
-        return ERRO
-    except KeyboardInterrupt:
-        print("ERRO: operação interrompida", file=sys.stderr)
         return ERRO
 
 
