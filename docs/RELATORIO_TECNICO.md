@@ -6,6 +6,7 @@
 |---|---|
 | Integrante | Maximus Saulo Guerreiro Ferreira (trabalho individual) |
 | Curso / disciplina | Engenharia de Software, Segurança da Informação, IFAM |
+| Turma | IV |
 | Linguagem | Python 3.9 ou superior |
 | Repositório | https://github.com/2022006505-sketch/validacao-cruzada-cripto (tag `v1.0-entrega`) |
 
